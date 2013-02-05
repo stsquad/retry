@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
 	complete=False
 	while not complete:
-		p = Popen(cmd, shell=True, stdout=PIPE,stderr=STDOUT)
+		p = Popen(cmd, shell=True, bufsize=1, stdout=PIPE,stderr=STDOUT)
 		if args.verbose:
 			print "Running: pid:%d, rc:%s" % (p.pid, p.returncode)
 		fcntl(p.stdout.fileno(), F_SETFL, O_NONBLOCK)
