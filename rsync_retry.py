@@ -6,10 +6,12 @@
 #
 
 from argparse import ArgumentParser
-from os import getenv, O_NONBLOCK
-from subprocess import Popen, PIPE
+from os import kill, getenv, O_NONBLOCK
+from subprocess import Popen, STDOUT, PIPE
 from fcntl import fcntl, F_SETFL
 import shlex
+import signal
+import sys
 
 #
 # Command line options
@@ -21,35 +23,56 @@ parser.add_argument('-d', '--dir', dest="destdir", default=getenv("HOME")+"/tmp"
 parser.add_argument('-v', '--verbose', dest="verbose", action='count')
 parser.add_argument('-t', '--test', dest="test", action='store_const', const=True, help="Just check what we would copy")
 
+# Globals
+global p
+global complete
+
+def signal_handler(sig, frame):
+	global p
+	global complete
+        print 'You caught %d Ctrl+C! Killing %d' % (sig, p.pid)
+	print "state of process is: %s" % (p.poll())
+	complete=True
+	p.terminate()
 
 # Start of code
 if __name__ == "__main__":
-    args = parser.parse_args()
+	global complete
+	args = parser.parse_args()
 
-    cmd = "rsync"
-    if args.rsync_args: cmd = "%s -%s" % (cmd, args.rsync_args)
-    cmd = "%s %s" % (cmd, args.source)
-    if not args.test: cmd = "%s %s" % (cmd, args.destdir)
+	cmd = "rsync"
+	if args.rsync_args: cmd = "%s -%s" % (cmd, args.rsync_args)
+	cmd = "%s %s" % (cmd, args.source)
+	if not args.test: cmd = "%s %s" % (cmd, args.destdir)
 
-    if args.verbose:
-        print "rsync command: %s" % (cmd)
-        print "rsync command: %s" % (shlex.split(cmd))
-        
-    complete=False
-    while not complete:
-        p = Popen(cmd, shell=True, stdout=PIPE)
-        fcntl(p.stdout.fileno(), F_SETFL, O_NONBLOCK)
-        running = True
-        while running:
-            try:
-                out = p.stdout.read()
-                print "got: %s" % (out)
-            except IOError:
-                pass
+	if args.verbose:
+		print "rsync command: %s" % (cmd)
+		print "rsync command: %s" % (shlex.split(cmd))
 
-            if p.poll():
-                print "child finished"
-                running = False
+	# Trap SIGTERM, SIGINT nicely
+	signal.signal(signal.SIGINT, signal_handler)
 
+	complete=False
+	while not complete:
+		p = Popen(cmd, shell=True, stdout=PIPE,stderr=STDOUT)
+		if args.verbose:
+			print "Running: pid:%d, rc:%s" % (p.pid, p.returncode)
+		fcntl(p.stdout.fileno(), F_SETFL, O_NONBLOCK)
+		running = True
+		while running:
+			try:
+				out = p.stdout.read()
+				if len(out)>0: sys.stdout.write(out)
+			except IOError:
+				pass
+			except:
+				print "another exceptions"
 
-        complete = True
+			x = p.poll()
+			if x != None:
+				print "child finished: x=%s rc = %d" % (x, p.returncode)
+				running = False
+				if p.returncode == 0:
+					complete=True
+
+		print "Finished loop and complete = %s" % (complete)
