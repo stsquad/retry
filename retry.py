@@ -1,8 +1,15 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 #
-# Rsync Retry Script
+# Generic Retry Script
 #
-# This script is a wrapper around rsync for dodgy links. The basic premise is it keeps retrying the rsync until eventual sucess.
+# Copyright (C) 2013, Alex Bennée <alex@bennee.com>
+# License: GPLv3
+#
+# I originally wrote this as a wrapper around rsync for dodgy links.
+# The basic premise was to keeps retrying the rsync until eventual success.
+# Since then I realised it would be far more useful as a generic wrapper
+# for any script that may fail or indeed need repeating.
 #
 
 from argparse import ArgumentParser
@@ -16,12 +23,12 @@ import sys
 #
 # Command line options
 #
-parser=ArgumentParser(description='Rsync resty script. Keep calling rsync until eventual success')
-parser.add_argument('source', help="source of files")
-parser.add_argument('--rargs', dest="rsync_args", help="options to pass to rsync")
-parser.add_argument('-d', '--dir', dest="destdir", default=getenv("HOME")+"/tmp", help="base directory for copy")
+parser=ArgumentParser(description='retry wrapper script. Keep calling the command until eventual success')
 parser.add_argument('-v', '--verbose', dest="verbose", action='count')
-parser.add_argument('-t', '--test', dest="test", action='store_const', const=True, help="Just check what we would copy")
+parser.add_argument('-t', '--test', dest="test", action='store_const', const=True, help="Test without retrying")
+parser.add_argument('-n', '--limit', dest="limit", type=int, help="Only loop around this many times")
+parser.add_argument('--invert', action='store_const', const=True, default=False, help="Invert the exit code test")
+parser.add_argument('command', nargs='*', help="The command to run. You can precede with -- to avoid confusion about it's flags")
 
 # Globals
 global p
@@ -40,24 +47,23 @@ if __name__ == "__main__":
 	global complete
 	args = parser.parse_args()
 
-	cmd = "rsync"
-	if args.rsync_args: cmd = "%s -%s" % (cmd, args.rsync_args)
-	cmd = "%s %s" % (cmd, args.source)
-	if not args.test: cmd = "%s %s" % (cmd, args.destdir)
-
-	if args.verbose:
-		print "rsync command: %s" % (cmd)
-		print "rsync command: %s" % (shlex.split(cmd))
+        if args.verbose: print "command is %s" % (args.command)
+        if args.invert and args.limit==None:
+                print "You must define a limit if you have inverted the return code test"
+                exit(-1)
 
 	# Trap SIGTERM, SIGINT nicely
 	signal.signal(signal.SIGINT, signal_handler)
 
 	complete=False
+        run_count=0
 	while not complete:
-		p = Popen(cmd, shell=True, bufsize=1, stdout=PIPE,stderr=STDOUT)
-		if args.verbose:
-			print "Running: pid:%d, rc:%s" % (p.pid, p.returncode)
+                cmd = " ".join(args.command)
+                print "cmd is: %s" % (cmd)
+		p = Popen(args.command, shell=False, bufsize=1, stdout=PIPE, stderr=STDOUT)
+		if args.verbose > 1: print "Running: pid:%d, rc:%s" % (p.pid, p.returncode)
 		fcntl(p.stdout.fileno(), F_SETFL, O_NONBLOCK)
+                return_code = 0
 		running = True
 		while running:
 			try:
@@ -72,7 +78,16 @@ if __name__ == "__main__":
 			if x != None:
 				print "child finished: x=%s rc = %d" % (x, p.returncode)
 				running = False
-				if p.returncode == 0:
-					complete=True
+                                return_code = p.returncode
 
-		print "Finished loop and complete = %s" % (complete)
+                run_count = run_count + 1
+
+                # Process our exit conditions
+                if args.test == True: complete = True
+                if run_count >= args.limit: complete = True
+                if args.invert:
+                        if return_code != 0: complete = True
+                else:
+                        if return_code == 0: complete = True
+
+        print "Ran command %d times" % (run_count)
