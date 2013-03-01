@@ -19,6 +19,7 @@ from fcntl import fcntl, F_SETFL
 import signal
 import sys
 import pty
+import select
 
 #
 # Command line options
@@ -46,43 +47,57 @@ def signal_handler(sig, frame):
 if __name__ == "__main__":
     global complete
     args = parser.parse_args()
-    
+
     if args.verbose: print "command is %s" % (args.command)
     if args.invert and args.limit==None:
         print "You must define a limit if you have inverted the return code test"
         exit(-1)
-            
+
     # Trap SIGTERM, SIGINT nicely
     signal.signal(signal.SIGINT, signal_handler)
-            
+
     complete=False
     run_count=0
     while not complete:
-        cmd = " ".join(args.command)
-        # we need a pty if we don't want children assuming they are not interactive
-        master, slave = pty.openpty()
-        p = Popen(cmd, shell=True, bufsize=1, stdout=slave, stderr=slave, close_fds=True)
-        stdout = fdopen(master)
-        if args.verbose > 1: print "Running: pid:%d, rc:%s" % (p.pid, p.returncode)
+        # flags
         return_code = 0
         running = True
+
+        # we need a pty if we don't want children assuming they are not interactive
+        master, slave = pty.openpty()
+        m_pty = fdopen(master)
+        #m_pty = fdopen(master, 'r', 0)
+        fcntl(m_pty.fileno(), F_SETFL, O_NONBLOCK)
+        #s_pty = fdopen(slave)
+        #s_pty = fdopen(slave, 'r', 0)
+        #fcntl(s_pty.fileno(), F_SETFL, O_NONBLOCK)
+        io_poll = select.poll()
+        io_poll.register(m_pty, (select.POLLIN|select.POLLPRI|select.POLLERR|select.POLLHUP))
+        #io_poll.register(s_pty, (select.POLLIN|select.POLLPRI|select.POLLERR|select.POLLHUP))
+
+        cmd = " ".join(args.command)
+        p = Popen(cmd, shell=True, stdin=PIPE, stdout=slave, stderr=slave, close_fds=True)
+        if args.verbose > 1: print "Running: pid:%d, rc:%s" % (p.pid, p.returncode)
+
         while running:
-            try:
-                out = stdout.read()
-                if len(out)>0: sys.stdout.write(out)
-            except IOError:
-                pass
-            except:
-                print "another exceptions"
-                                
-            x = p.poll()
-            if x != None:
-                print "child finished: x=%s rc = %d" % (x, p.returncode)
+            # check we are still running
+            if p.poll() != None:
+                print "child finished: rc = %d" % (p.returncode)
                 running = False
                 return_code = p.returncode
-                                    
+                break
+
+            # check for IO
+            events = io_poll.poll(1000)
+            #print "events is %s" % (events)
+            for (fd, mask) in events:
+                #print "m_pty fd is %d" % (m_pty.fileno())
+                out = m_pty.read()
+                sys.stdout.write(out)
+
+
         run_count = run_count + 1
-                                    
+
         # Process our exit conditions
         if args.test == True: complete = True
         if run_count >= args.limit: complete = True
@@ -90,5 +105,5 @@ if __name__ == "__main__":
             if return_code != 0: complete = True
         else:
             if return_code == 0: complete = True
-                                                        
+
     print "Ran command %d times" % (run_count)
