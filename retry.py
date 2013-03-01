@@ -13,10 +13,10 @@
 #
 
 from argparse import ArgumentParser
-from os import fdopen, kill, getenv, O_NONBLOCK
 from subprocess import Popen, STDOUT, PIPE
 from fcntl import fcntl, F_SETFL
 import signal
+import os
 import sys
 import pty
 import select
@@ -53,6 +53,11 @@ if __name__ == "__main__":
         print "You must define a limit if you have inverted the return code test"
         exit(-1)
 
+    # Find out our foreground process group
+    our_tty = os.open("/dev/tty", os.O_RDONLY)
+    our_tty_pgrp = os.tcgetpgrp(our_tty)
+    if args.verbose > 1: print "terminal process group = %d" % (our_tty_pgrp)
+
     # Trap SIGTERM, SIGINT nicely
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -65,15 +70,10 @@ if __name__ == "__main__":
 
         # we need a pty if we don't want children assuming they are not interactive
         master, slave = pty.openpty()
-        m_pty = fdopen(master)
-        #m_pty = fdopen(master, 'r', 0)
-        fcntl(m_pty.fileno(), F_SETFL, O_NONBLOCK)
-        #s_pty = fdopen(slave)
-        #s_pty = fdopen(slave, 'r', 0)
-        #fcntl(s_pty.fileno(), F_SETFL, O_NONBLOCK)
+        m_pty = os.fdopen(master)
+        fcntl(m_pty.fileno(), F_SETFL, os.O_NONBLOCK)
         io_poll = select.poll()
         io_poll.register(m_pty, (select.POLLIN|select.POLLPRI|select.POLLERR|select.POLLHUP))
-        #io_poll.register(s_pty, (select.POLLIN|select.POLLPRI|select.POLLERR|select.POLLHUP))
 
         cmd = " ".join(args.command)
         p = Popen(cmd, shell=True, stdin=PIPE, stdout=slave, stderr=slave, close_fds=True)
