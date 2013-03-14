@@ -50,7 +50,7 @@ if __name__ == "__main__":
         return_code = subprocess.call(args.command, close_fds=True,
                                       preexec_fn=become_tty_fg)
         if args.test == True: break
-        if run_count >= args.limit: break
+        if args.limit and run_count >= args.limit: break
         if args.invert and return_code != 0: break
         elif not args.invert and return_code == 0: break
 
