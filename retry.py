@@ -13,6 +13,7 @@
 #
 
 from argparse import ArgumentParser
+from time import sleep
 import os
 import signal
 import subprocess
@@ -26,6 +27,7 @@ parser.add_argument('-v', '--verbose', dest="verbose", action='count')
 parser.add_argument('-t', '--test', dest="test", action='store_const', const=True, help="Test without retrying")
 parser.add_argument('-n', '--limit', dest="limit", type=int, help="Only loop around this many times")
 parser.add_argument('--invert', action='store_const', const=True, default=False, help="Invert the exit code test")
+parser.add_argument('--delay', type=int, help="Sleep for N seconds between retries")
 parser.add_argument('command', nargs='*', help="The command to run. You can precede with -- to avoid confusion about it's flags")
 
 # Globals
@@ -53,5 +55,11 @@ if __name__ == "__main__":
         if args.limit and run_count >= args.limit: break
         if args.invert and return_code != 0: break
         elif not args.invert and return_code == 0: break
+
+        print "Run %d times (rc = %d)" % (run_count+1, return_code)
+
+        if args.delay:
+            if args.verbose: print "sleeping for %d seconds" % (args.delay)
+            sleep(args.delay)
 
     print "Ran command %d times" % (run_count)
