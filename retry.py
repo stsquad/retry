@@ -14,7 +14,7 @@
 
 from argparse import ArgumentParser
 from time import sleep
-import os
+import sys,os
 import signal
 import subprocess
 import itertools
@@ -27,12 +27,8 @@ parser.add_argument('-v', '--verbose', dest="verbose", action='count')
 parser.add_argument('-t', '--test', dest="test", action='store_const', const=True, help="Test without retrying")
 parser.add_argument('-n', '--limit', dest="limit", type=int, help="Only loop around this many times")
 parser.add_argument('--invert', action='store_const', const=True, default=False, help="Invert the exit code test")
-parser.add_argument('--delay', type=int, help="Sleep for N seconds between retries")
+parser.add_argument('--delay', type=int, default=5, help="Sleep for N seconds between retries")
 parser.add_argument('command', nargs='*', help="The command to run. You can precede with -- to avoid confusion about it's flags")
-
-# Globals
-global p
-global complete
 
 def become_tty_fg():
     os.setpgrp()
@@ -41,6 +37,24 @@ def become_tty_fg():
     os.tcsetpgrp(tty, os.getpgrp())
     signal.signal(signal.SIGTTOU, hdlr)
 
+def wait_some(seconds, verbose):
+    interrupted = False
+    def sigint_handler(sig, frame):
+        print "here in sigint handler"
+        interrupted = True
+
+    old_hdlr = signal.signal(signal.SIGINT, sigint_handler)
+    print "got old handler as %s" % (old_hdlr)
+    while seconds>0 and not interrupted: 
+        if verbose: print("waiting for %d seconds" % (seconds))
+        sleep(1)
+        seconds -= 1
+
+    signal.signal(signal.SIGINT, old_hdlr)
+    return interrupted
+
+    
+    
 if __name__ == "__main__":
     args = parser.parse_args()
 
@@ -58,8 +72,7 @@ if __name__ == "__main__":
 
         print "Run %d times (rc = %d)" % (run_count+1, return_code)
 
-        if args.delay:
-            if args.verbose: print "sleeping for %d seconds" % (args.delay)
-            sleep(args.delay)
+        # now sleep, exit if user kills it
+        if wait_some(args.delay, args.verbose): break
 
-    print "Ran command %d times" % (run_count)
+    print "Ran command %d times" % (run_count+1)
