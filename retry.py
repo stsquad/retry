@@ -44,29 +44,24 @@ def become_tty_fg():
     os.tcsetpgrp(tty, os.getpgrp())
     signal.signal(signal.SIGTTOU, hdlr)
 
+
 def wait_some(seconds, verbose):
-    interrupted = False
-    def sigint_handler(sig, frame):
-        print "here in sigint handler"
-        interrupted = True
+    become_tty_fg()
 
-    old_hdlr = signal.signal(signal.SIGINT, sigint_handler)
-    print "got old handler as %s" % (old_hdlr)
-    while seconds>0 and not interrupted: 
-        if verbose: print("waiting for %d seconds" % (seconds))
-        sleep(1)
-        seconds -= 1
+    try:
+        if verbose: print("waiting for %d" % (seconds))
+        sleep(seconds)
+        return False
+    except:
+        print ("got exception")
+        return True
 
-    signal.signal(signal.SIGINT, old_hdlr)
-    return interrupted
 
-    
-    
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    if args.verbose: print "command is %s" % (args.command)
-    if args.invert and args.limit==None:
+    if args.verbose: print ("command is %s" % (args.command))
+    if args.invert and args.limit is None:
         sys.exit("You must define a limit if you have inverted the return code test")
 
     for run_count in itertools.count():
