@@ -34,7 +34,7 @@ parser.add_argument('--invert',
                     action='store_const', const=True, default=False,
                     help="Invert the exit code test")
 parser.add_argument('--delay', type=int, default=5, help="Sleep for N seconds between retries")
-parser.add_argument('--notty', action='store_true', default="False", help="Don't attempt to grab tty control")
+parser.add_argument('--notty', action='store_true', default=False, help="Don't attempt to grab tty control")
 parser.add_argument('command', nargs='*', help="The command to run. You can precede with -- to avoid confusion about it's flags")
 
 
