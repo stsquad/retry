@@ -26,10 +26,13 @@ import itertools
 parser = ArgumentParser(description="Retry wrapper script.")
 parser.add_argument('-v', '--verbose', dest="verbose", action='count')
 parser.add_argument('-t', '--test', dest="test",
-                    action='store_const', const=True,
+                    action='store_true', default=False,
                     help="Test without retrying")
 parser.add_argument('-n', '--limit', dest="limit", type=int,
                     help="Only loop around this many times")
+parser.add_argument('-c', '--count', action="store_true", default=False,
+                    help="In conjunction with -n/--limit "
+                    "count total successes.")
 parser.add_argument('--invert',
                     action='store_const', const=True, default=False,
                     help="Invert the exit code test")
@@ -79,31 +82,45 @@ if __name__ == "__main__":
         print ("command is %s" % (args.command))
 
     if args.limit is None:
+        if args.count:
+            sys.exit("Define a limit if running a success count")
         if args.notty:
             sys.exit("Define a limit if running without a controlling tty")
         if args.invert:
             sys.exit("Define a limit if you have inverted return code test")
 
-    for run_count in itertools.count():
+    pass_count = 0
+    for run_count in itertools.count(start=1):
         if args.notty:
             return_code = subprocess.call(args.command, close_fds=True)
         else:
             return_code = subprocess.call(args.command, close_fds=True,
                                           preexec_fn=become_tty_fg)
 
-        if args.test is True:
-            break
-        if args.limit and run_count >= args.limit:
-            break
-        if args.invert and return_code != 0:
-            break
-        elif not args.invert and return_code == 0:
-            break
+        # Did the test pass/fail
+        success = (return_code == 0)
+        if args.invert:
+            success = not success
+        if success:
+            pass_count += 1
 
-        print ("Run %d times (rc = %d)" % (run_count+1, return_code))
+        print ("Run number %d, rc = %d (success=%s)"
+               % (run_count, return_code, success))
+
+        if args.count:
+            if run_count >= args.limit:
+                break
+        else:
+            if args.test is True:
+                break
+            if args.limit and run_count >= args.limit:
+                break
+            if success:
+                break
+
 
         # now sleep, exit if user kills it
         if wait_some(args.delay, args.verbose, args.notty):
             break
 
-    print ("Ran command %d times" % (run_count+1))
+    print ("Ran command %d times, %d passes" % (run_count, pass_count))
