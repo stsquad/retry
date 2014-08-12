@@ -23,7 +23,7 @@ import itertools
 #
 # Command line options
 #
-parser=ArgumentParser(description = "Retry wrapper script.")
+parser = ArgumentParser(description="Retry wrapper script.")
 parser.add_argument('-v', '--verbose', dest="verbose", action='count')
 parser.add_argument('-t', '--test', dest="test",
                     action='store_const', const=True,
@@ -33,9 +33,14 @@ parser.add_argument('-n', '--limit', dest="limit", type=int,
 parser.add_argument('--invert',
                     action='store_const', const=True, default=False,
                     help="Invert the exit code test")
-parser.add_argument('--delay', type=int, default=5, help="Sleep for N seconds between retries")
-parser.add_argument('--notty', action='store_true', default=False, help="Don't attempt to grab tty control")
-parser.add_argument('command', nargs='*', help="The command to run. You can precede with -- to avoid confusion about it's flags")
+parser.add_argument('--delay', type=int, default=5,
+                    help="Sleep for N seconds between retries")
+parser.add_argument('--notty', action='store_true', default=False,
+                    help="Don't attempt to grab tty control")
+parser.add_argument('command', nargs='*',
+                    help="The command to run. "
+                    "You should precede with -- "
+                    "to avoid confusion about it's flags")
 
 
 def become_tty_fg():
@@ -52,7 +57,8 @@ def wait_some(seconds, verbose, notty=False):
         become_tty_fg()
 
     try:
-        if verbose: print("waiting for %d" % (seconds))
+        if verbose:
+            print("waiting for %d" % (seconds))
         sleep(seconds)
         return False
     except:
@@ -68,12 +74,15 @@ if __name__ == "__main__":
             tty_check = os.open('/dev/tty', os.O_RDWR)
         except OSError:
             args.notty = True
-            
-    if args.verbose: print ("command is %s" % (args.command))
-    if args.notty and args.limit is None:
-        sys.exit("You must define a limit if running without a controlling tty")
-    if args.invert and args.limit is None:
-        sys.exit("You must define a limit if you have inverted the return code test")
+
+    if args.verbose:
+        print ("command is %s" % (args.command))
+
+    if args.limit is None:
+        if args.notty:
+            sys.exit("Define a limit if running without a controlling tty")
+        if args.invert:
+            sys.exit("Define a limit if you have inverted return code test")
 
     for run_count in itertools.count():
         if args.notty:
@@ -81,15 +90,20 @@ if __name__ == "__main__":
         else:
             return_code = subprocess.call(args.command, close_fds=True,
                                           preexec_fn=become_tty_fg)
-            
-        if args.test == True: break
-        if args.limit and run_count >= args.limit: break
-        if args.invert and return_code != 0: break
-        elif not args.invert and return_code == 0: break
+
+        if args.test is True:
+            break
+        if args.limit and run_count >= args.limit:
+            break
+        if args.invert and return_code != 0:
+            break
+        elif not args.invert and return_code == 0:
+            break
 
         print ("Run %d times (rc = %d)" % (run_count+1, return_code))
 
         # now sleep, exit if user kills it
-        if wait_some(args.delay, args.verbose, args.notty): break
+        if wait_some(args.delay, args.verbose, args.notty):
+            break
 
     print ("Ran command %d times" % (run_count+1))
