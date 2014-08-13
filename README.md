@@ -13,3 +13,12 @@ I've made it a lot more generic. The original behaviour can be run by:
 
     retry.py -v -- rsync user@host:path/ .
     
+Other Features
+--------------
+
+I've added the -c/--count option for use in testing situations. If you
+have a program that fails occasionally you can run -n iterations and
+get a summary of the return codes at the end of your run.
+
+Ideally your test program should return different error codes for
+different failure cases.
