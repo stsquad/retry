@@ -90,6 +90,7 @@ if __name__ == "__main__":
             sys.exit("Define a limit if you have inverted return code test")
 
     pass_count = 0
+    return_values = []
     for run_count in itertools.count(start=1):
         if args.notty:
             return_code = subprocess.call(args.command, close_fds=True)
@@ -98,6 +99,7 @@ if __name__ == "__main__":
                                           preexec_fn=become_tty_fg)
 
         # Did the test pass/fail
+        return_values.append(return_code)
         success = (return_code == 0)
         if args.invert:
             success = not success
@@ -124,3 +126,14 @@ if __name__ == "__main__":
             break
 
     print ("Ran command %d times, %d passes" % (run_count, pass_count))
+    if args.count:
+        r_total = {}
+        for r in return_values:
+            try:
+                r_total[r]+=1
+            except:
+                r_total[r]=1
+        for r in r_total:
+            total = r_total[r]
+            perc = (r_total[r]/float(run_count))*100
+            print "Return code: %d, %d times (%.2f%%)" % (r, total, perc)
