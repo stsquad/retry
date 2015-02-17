@@ -1,7 +1,7 @@
 retry.py
 ========
 
-A simple wrapper script to keep retrying until success.
+A simple wrapper script to keep retrying until a success/fail condition.
 
 I originally wrote this as a simple wrapper script that monitored the return
 code from rsync and retried the sync if it was non-zero (i.e. failed to complete).

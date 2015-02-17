@@ -43,7 +43,7 @@ parser.add_argument('--notty', action='store_true', default=False,
 parser.add_argument('command', nargs='*',
                     help="The command to run. "
                     "You should precede with -- "
-                    "to avoid confusion about it's flags")
+                    "to avoid confusion about its flags")
 
 
 def become_tty_fg():
