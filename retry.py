@@ -106,8 +106,8 @@ if __name__ == "__main__":
         if success:
             pass_count += 1
 
-        print ("Run number %d, rc = %d (success=%s)"
-               % (run_count, return_code, success))
+        print ("Run number %d (%d passes), rc = %d (success=%s)"
+               % (run_count, pass_count, return_code, success))
 
         if args.count:
             if run_count >= args.limit:
