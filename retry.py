@@ -19,10 +19,26 @@ import os
 import signal
 import subprocess
 import itertools
+import re
 
 #
 # Command line options
 #
+
+
+def parse_delay(string):
+    """Convert DELAY[smh] into seconds"""
+    mult = 1
+    if string.endswith("m"):
+        mult = 60
+    elif string.endswith("h"):
+        mult = 60 * 60
+
+    time = int(re.findall("\d+", string)[0])
+    time = time * mult
+
+    return time
+
 parser = ArgumentParser(description="Retry wrapper script.")
 parser.add_argument('-v', '--verbose', dest="verbose", action='count')
 parser.add_argument('-t', '--test', dest="test",
@@ -36,8 +52,8 @@ parser.add_argument('-c', '--count', action="store_true", default=False,
 parser.add_argument('--invert',
                     action='store_const', const=True, default=False,
                     help="Invert the exit code test")
-parser.add_argument('--delay', type=int, default=5,
-                    help="Sleep for N seconds between retries")
+parser.add_argument('--delay', type=parse_delay, default=5,
+                    help="Sleep for N (s)ecs, (m)ins or (h)ours between retries.")
 parser.add_argument('--notty', action='store_true', default=False,
                     help="Don't attempt to grab tty control")
 parser.add_argument('command', nargs='*',
