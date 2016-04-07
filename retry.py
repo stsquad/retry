@@ -24,6 +24,37 @@ import re
 #
 # Command line options
 #
+def parse_arguments():
+    """
+    Read the arguments and return them to main.
+    """
+    parser = ArgumentParser(description="Retry wrapper script.")
+    parser.add_argument('-v', '--verbose', dest="verbose", action='count')
+    parser.add_argument('-t', '--test', dest="test",
+                        action='store_true', default=False,
+                        help="Test without retrying")
+    parser.add_argument('-n', '--limit', dest="limit", type=int,
+                        help="Only loop around this many times")
+    parser.add_argument('-c', '--count', action="store_true", default=False,
+                        help="In conjunction with -n/--limit "
+                        "count total successes.")
+    parser.add_argument('--invert',
+                        action='store_const', const=True, default=False,
+                        help="Invert the exit code test")
+    parser.add_argument('--delay', type=parse_delay, default=5,
+                        help="Sleep for N (s)ecs, (m)ins or (h)ours between retries.")
+    parser.add_argument('--pass', dest="success",
+                        type=int, default=0,
+                        help="Defined what a pass is.")
+    parser.add_argument('--notty', action='store_true', default=False,
+                        help="Don't attempt to grab tty control")
+    parser.add_argument('command', nargs='*',
+                        help="The command to run. "
+                        "You should precede with -- "
+                        "to avoid confusion about its flags")
+
+    return parser.parse_args()
+
 
 
 def parse_delay(string):
@@ -45,31 +76,6 @@ def parse_delay(string):
     time = time * mult
 
     return time
-
-parser = ArgumentParser(description="Retry wrapper script.")
-parser.add_argument('-v', '--verbose', dest="verbose", action='count')
-parser.add_argument('-t', '--test', dest="test",
-                    action='store_true', default=False,
-                    help="Test without retrying")
-parser.add_argument('-n', '--limit', dest="limit", type=int,
-                    help="Only loop around this many times")
-parser.add_argument('-c', '--count', action="store_true", default=False,
-                    help="In conjunction with -n/--limit "
-                    "count total successes.")
-parser.add_argument('--invert',
-                    action='store_const', const=True, default=False,
-                    help="Invert the exit code test")
-parser.add_argument('--delay', type=parse_delay, default=5,
-                    help="Sleep for N (s)ecs, (m)ins or (h)ours between retries.")
-parser.add_argument('--pass', dest="success",
-                    type=int, default=0,
-                    help="Defined what a pass is.")
-parser.add_argument('--notty', action='store_true', default=False,
-                    help="Don't attempt to grab tty control")
-parser.add_argument('command', nargs='*',
-                    help="The command to run. "
-                    "You should precede with -- "
-                    "to avoid confusion about its flags")
 
 
 def become_tty_fg():
@@ -96,7 +102,7 @@ def wait_some(seconds, verbose, notty=False):
 
 
 if __name__ == "__main__":
-    args = parser.parse_args()
+    args = parse_arguments()
 
     if not args.notty:
         try:
