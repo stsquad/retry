@@ -51,7 +51,7 @@ def parse_arguments():
     parser.add_argument('--invert',
                         action='store_const', const=True, default=False,
                         help="Invert the exit code test")
-    parser.add_argument('--delay', type=parse_delay, default=5,
+    parser.add_argument('--delay', type=parse_delay, default=1,
                         help="Sleep for N (s)ecs, (m)ins or (h)ours between retries.")
     parser.add_argument('--pass', dest="success",
                         type=int, default=0,
