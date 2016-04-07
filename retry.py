@@ -162,4 +162,4 @@ if __name__ == "__main__":
         for r in r_total:
             total = r_total[r]
             perc = (r_total[r]/float(run_count))*100
-            print "Return code: %d, %d times (%.2f%%)" % (r, total, perc)
+            print ("Return code: %d, %d times (%.2f%%)" % (r, total, perc))
