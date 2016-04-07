@@ -27,7 +27,14 @@ import re
 
 
 def parse_delay(string):
-    """Convert DELAY[smh] into seconds"""
+    """Convert DELAY[smh] into seconds
+    >>> parse_delay("1s")
+    1
+    >>> parse_delay("1m")
+    60
+    >>> parse_delay("2m")
+    120
+    """
     mult = 1
     if string.endswith("m"):
         mult = 60
