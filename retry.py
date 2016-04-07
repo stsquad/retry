@@ -72,7 +72,7 @@ def parse_delay(string):
     elif string.endswith("h"):
         mult = 60 * 60
 
-    time = int(re.findall("\d+", string)[0])
+    time = int(re.findall("\\d+", string)[0])
     time = time * mult
 
     return time
