@@ -17,7 +17,8 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-from time import sleep
+from time import sleep, time
+from collections import namedtuple
 import sys
 import os
 import signal
@@ -57,7 +58,27 @@ def parse_arguments():
                         "You should precede with -- "
                         "to avoid confusion about its flags")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Do a little validation/checking
+    if not args.notty:
+        try:
+            tty_check = os.open('/dev/tty', os.O_RDWR)
+        except OSError:
+            args.notty = True
+
+    if args.verbose:
+        print ("command is %s" % (args.command))
+
+    if args.limit is None:
+        if args.count:
+            sys.exit("Define a limit if running a success count")
+        if args.notty:
+            sys.exit("Define a limit if running without a controlling tty")
+        if args.invert:
+            sys.exit("Define a limit if you have inverted return code test")
+
+    return args
 
 
 
@@ -83,6 +104,11 @@ def parse_delay(string):
 
 
 def become_tty_fg():
+    """Become foreground tty.
+
+    This is used before spawning the subprocess so key sequences are correctly passed down.
+    We also use it to grab it back when sleeping.
+    """
     os.setpgrp()
     hdlr = signal.signal(signal.SIGTTOU, signal.SIG_IGN)
     tty = os.open('/dev/tty', os.O_RDWR)
@@ -101,49 +127,74 @@ def wait_some(seconds, verbose, notty=False):
 
     try:
         if verbose:
-            print "waiting for %d" % (seconds)
+            print ("waiting for %d" % (seconds))
         sleep(seconds)
         return False
     except KeyboardInterrupt:
         return True
 
 
-if __name__ == "__main__":
+def process_results(results, breakdown=False):
+    """Process the results
+
+    We can either print a summary or do more detailed reporting on the results.
+    """
+    # First sort the results by return code
+    sorted_results = {}
+    for _ in results:
+        try:
+            sorted_results[_.result].append(_)
+        except KeyError:
+            sorted_results[_.result] = [_]
+
+    total_runs = len(results)
+    total_passes = 0
+
+    if breakdown: print ("Results summary:")
+
+    for ret, res in sorted_results.iteritems():
+        count = len(res)
+        total_time = 0.0
+        for _ in res:
+            total_time += _.time
+            if _.is_pass: total_passes += 1
+
+        perc = (count/float(total_runs))*100
+        avg_time = total_time/count
+
+        if breakdown:
+            print ("%d: %d times (%.2f%%), avg time %f" % (ret, count, perc, avg_time))
+
+    print ("Ran command %d times, %d passes" % (total_runs, total_passes))
+
+
+def retry():
+    """The main retry loop."""
+
     args = parse_arguments()
 
-    if not args.notty:
-        try:
-            tty_check = os.open('/dev/tty', os.O_RDWR)
-        except OSError:
-            args.notty = True
-
-    if args.verbose:
-        print ("command is %s" % (args.command))
-
-    if args.limit is None:
-        if args.count:
-            sys.exit("Define a limit if running a success count")
-        if args.notty:
-            sys.exit("Define a limit if running without a controlling tty")
-        if args.invert:
-            sys.exit("Define a limit if you have inverted return code test")
-
     pass_count = 0
-    return_values = []
+    Result = namedtuple("Result", ["is_pass", "result", "time"])
+    results = []
+#    return_values = []
     for run_count in itertools.count(start=1):
+        start_time = time()
         if args.notty:
             return_code = subprocess.call(args.command, close_fds=True)
         else:
             return_code = subprocess.call(args.command, close_fds=True,
                                           preexec_fn=become_tty_fg)
+        run_time = time() - start_time
 
         # Did the test pass/fail
-        return_values.append(return_code)
         success = (return_code == args.success)
         if args.invert:
             success = not success
         if success:
             pass_count += 1
+
+        # Log the result
+        results.append(Result(success, return_code, run_time))
 
         print ("Run number %d (%d passes), rc = %d (success=%s)"
                % (run_count, pass_count, return_code, success))
@@ -164,15 +215,8 @@ if __name__ == "__main__":
         if wait_some(args.delay, args.verbose, args.notty):
             break
 
-    print ("Ran command %d times, %d passes" % (run_count, pass_count))
-    if args.count:
-        r_total = {}
-        for r in return_values:
-            try:
-                r_total[r]+=1
-            except:
-                r_total[r]=1
-        for r in r_total:
-            total = r_total[r]
-            perc = (r_total[r]/float(run_count))*100
-            print ("Return code: %d, %d times (%.2f%%)" % (r, total, perc))
+    process_results(results, args.count)
+
+
+if __name__ == "__main__":
+    retry()
