@@ -181,8 +181,16 @@ def process_results(results, breakdown=False):
         perc = (count/float(total_runs))*100
         avg_time = total_time/count
 
+        # calculate deviation
+        deviation = 0
+        for r in res:
+            deviation += (r.time - avg_time)**2
+
+        deviation = deviation / count
+
         if breakdown:
-            print ("%d: %d times (%.2f%%), avg time %f" % (ret, count, perc, avg_time))
+            print ("%d: %d times (%.2f%%), avg time %f (%f deviation)" %
+                   (ret, count, perc, avg_time, deviation))
 
     print ("Ran command %d times, %d passes" % (total_runs, total_passes))
 
