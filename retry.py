@@ -11,6 +11,10 @@
 # Since then I realised it would be far more useful as a generic wrapper
 # for any script that may fail or indeed need repeating.
 #
+# pylint: disable=C0321
+
+# for Python3 cleanliness
+from __future__ import print_function
 
 from argparse import ArgumentParser
 from time import sleep
