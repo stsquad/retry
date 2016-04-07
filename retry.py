@@ -54,6 +54,9 @@ parser.add_argument('--invert',
                     help="Invert the exit code test")
 parser.add_argument('--delay', type=parse_delay, default=5,
                     help="Sleep for N (s)ecs, (m)ins or (h)ours between retries.")
+parser.add_argument('--pass', dest="success",
+                    type=int, default=0,
+                    help="Defined what a pass is.")
 parser.add_argument('--notty', action='store_true', default=False,
                     help="Don't attempt to grab tty control")
 parser.add_argument('command', nargs='*',
@@ -116,7 +119,7 @@ if __name__ == "__main__":
 
         # Did the test pass/fail
         return_values.append(return_code)
-        success = (return_code == 0)
+        success = (return_code == args.success)
         if args.invert:
             success = not success
         if success:
