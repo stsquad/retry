@@ -87,17 +87,20 @@ def become_tty_fg():
 
 
 def wait_some(seconds, verbose, notty=False):
+    """Sleep for a period.
+
+    We grab the tty unless told not to so the user can hit Ctrl-C and exit.
+    """
 
     if not notty:
         become_tty_fg()
 
     try:
         if verbose:
-            print("waiting for %d" % (seconds))
+            print "waiting for %d" % (seconds)
         sleep(seconds)
         return False
-    except:
-        print ("got exception")
+    except KeyboardInterrupt:
         return True
 
 
