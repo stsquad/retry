@@ -146,7 +146,7 @@ def wait_some(seconds, notty=False):
         become_tty_fg()
 
     try:
-        logger.info("waiting for %ds", seconds)
+        logger.debug("waiting for %ds", seconds)
         sleep(seconds)
         return False
     except KeyboardInterrupt:
