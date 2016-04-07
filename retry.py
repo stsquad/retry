@@ -11,7 +11,7 @@
 # Since then I realised it would be far more useful as a generic wrapper
 # for any script that may fail or indeed need repeating.
 #
-# pylint: disable=C0321
+# pylint: disable=C0321,invalid-name
 
 # for Python3 cleanliness
 from __future__ import print_function
@@ -19,12 +19,16 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from time import sleep, time
 from collections import namedtuple
+
+import logging
 import sys
 import os
 import signal
 import subprocess
 import itertools
 import re
+
+logger = logging.getLogger("retry")
 
 #
 # Command line options
@@ -35,6 +39,7 @@ def parse_arguments():
     """
     parser = ArgumentParser(description="Retry wrapper script.")
     parser.add_argument('-v', '--verbose', dest="verbose", action='count')
+    parser.add_argument('-l', '--log', default=None, help="File to log to")
     parser.add_argument('-t', '--test', dest="test",
                         action='store_true', default=False,
                         help="Test without retrying")
@@ -67,8 +72,23 @@ def parse_arguments():
         except OSError:
             args.notty = True
 
+    # setup logging
     if args.verbose:
-        print ("command is %s" % (args.command))
+        if args.verbose == 1: logger.setLevel(logging.INFO)
+        if args.verbose >= 2: logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.WARNING)
+
+    if args.log:
+        handler = logging.FileHandler(args.log)
+    else:
+        handler = logging.StreamHandler()
+
+    lfmt = logging.Formatter('%(message)s')
+    handler.setFormatter(lfmt)
+    logger.addHandler(handler)
+
+    logger.info("command is %s", args.command)
 
     if args.limit is None:
         if args.count:
@@ -97,10 +117,10 @@ def parse_delay(string):
     elif string.endswith("h"):
         mult = 60 * 60
 
-    time = int(re.findall("\\d+", string)[0])
-    time = time * mult
+    delay = int(re.findall("\\d+", string)[0])
+    delay = delay * mult
 
-    return time
+    return delay
 
 
 def become_tty_fg():
@@ -116,7 +136,7 @@ def become_tty_fg():
     signal.signal(signal.SIGTTOU, hdlr)
 
 
-def wait_some(seconds, verbose, notty=False):
+def wait_some(seconds, notty=False):
     """Sleep for a period.
 
     We grab the tty unless told not to so the user can hit Ctrl-C and exit.
@@ -126,8 +146,7 @@ def wait_some(seconds, verbose, notty=False):
         become_tty_fg()
 
     try:
-        if verbose:
-            print ("waiting for %d" % (seconds))
+        logger.info("waiting for %ds", seconds)
         sleep(seconds)
         return False
     except KeyboardInterrupt:
@@ -196,8 +215,10 @@ def retry():
         # Log the result
         results.append(Result(success, return_code, run_time))
 
-        print ("Run number %d (%d passes), rc = %d (success=%s)"
-               % (run_count, pass_count, return_code, success))
+        logger.info("run %d: ret=%d (%s), time=%f (%d/%d)",
+                    run_count,
+                    return_code, "PASS" if success else "FALSE", run_time,
+                    pass_count, run_count)
 
         if args.count:
             if run_count >= args.limit:
@@ -212,7 +233,7 @@ def retry():
 
 
         # now sleep, exit if user kills it
-        if wait_some(args.delay, args.verbose, args.notty):
+        if wait_some(args.delay, args.notty):
             break
 
     process_results(results, args.count)
