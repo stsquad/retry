@@ -27,6 +27,7 @@ import signal
 import subprocess
 import itertools
 import re
+import signal
 
 logger = logging.getLogger("retry")
 
@@ -43,6 +44,7 @@ def parse_arguments():
     parser.add_argument('-t', '--test', dest="test",
                         action='store_true', default=False,
                         help="Test without retrying")
+    parser.add_argument('--timeout', type=int, help="Set timeout")
     parser.add_argument('-n', '--limit', dest="limit", type=int,
                         help="Only loop around this many times")
     parser.add_argument('-c', '--count', action="store_true", default=False,
@@ -204,14 +206,22 @@ def retry():
     pass_count = 0
     Result = namedtuple("Result", ["is_pass", "result", "time"])
     results = []
-#    return_values = []
+    signal.signal(signal.SIGALRM, timeout_handler)
+
     for run_count in itertools.count(start=1):
         start_time = time()
-        if args.notty:
-            return_code = subprocess.call(args.command, close_fds=True)
-        else:
-            return_code = subprocess.call(args.command, close_fds=True,
-                                          preexec_fn=become_tty_fg)
+        if args.timeout:
+            signal.alarm(args.timeout)
+
+        pef = None if args.notty else become_tty_fg
+        sub = subprocess.Popen(args.command, close_fds=True, preexec_fn=pef)
+        try:
+            return_code = sub.wait()
+        except Timeout:
+            sub.send_signal(signal.SIGKILL)
+            return_code = -1
+
+        signal.alarm(0)
         run_time = time() - start_time
 
         # Did the test pass/fail
