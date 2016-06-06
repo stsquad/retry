@@ -193,6 +193,7 @@ def process_results(results, breakdown=False):
                    (ret, count, perc, avg_time, deviation))
 
     print ("Ran command %d times, %d passes" % (total_runs, total_passes))
+    return (total_runs - total_passes)
 
 
 def retry():
@@ -244,8 +245,9 @@ def retry():
         if wait_some(args.delay, args.notty):
             break
 
-    process_results(results, args.count)
+    return process_results(results, args.count)
 
 
 if __name__ == "__main__":
-    retry()
+    r = retry()
+    exit(r)
