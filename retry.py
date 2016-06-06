@@ -198,6 +198,18 @@ def process_results(results, breakdown=False):
     return (total_runs - total_passes)
 
 
+class Timeout(Exception):
+    "Timeout exception"
+
+    def __str__(self):
+        return "timeout"
+
+
+def timeout_handler(signum, frame):
+    "Timeout handler"
+    raise Timeout
+
+
 def retry():
     """The main retry loop."""
 
