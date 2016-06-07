@@ -43,6 +43,8 @@ def parse_arguments():
     parser.add_argument('-t', '--test', dest="test",
                         action='store_true', default=False,
                         help="Test without retrying")
+    parser.add_argument('-b', '--bisect', default=False,
+                        action='store_true', help="GIT bisect support")
     parser.add_argument('--timeout', type=int, help="Set timeout")
     parser.add_argument('-n', '--limit', dest="limit", type=int,
                         help="Only loop around this many times")
@@ -73,6 +75,13 @@ def parse_arguments():
         except OSError:
             args.notty = True
 
+    # bisect support needs some defaults
+    if args.bisect:
+        if args.verbose == 0:
+            args.verbose = 1
+        if not args.log:
+            args.log = "bisect.log"
+
     # setup logging
     if args.verbose:
         if args.verbose == 1: logger.setLevel(logging.INFO)
@@ -81,7 +90,7 @@ def parse_arguments():
         logger.setLevel(logging.WARNING)
 
     if args.log:
-        handler = logging.FileHandler(args.log)
+        handler = logging.FileHandler(args.log, mode="a")
     else:
         handler = logging.StreamHandler()
 
@@ -206,10 +215,70 @@ def timeout_handler(signum, frame):
     raise Timeout
 
 
+def run_command(command, notty=False, shell=False, timeout=None):
+    """Run a command, letting it take tty and optionally timing out"""
+    if timeout:
+        signal.alarm(timeout)
+
+    logger.debug("running command: %s (notty=%s, %s timeout)",
+                 command, notty, "with" if timeout else "without")
+
+    pef = None if notty else become_tty_fg
+    sub = subprocess.Popen(command, close_fds=True, shell=shell, preexec_fn=pef)
+    try:
+        while sub.poll() is None:
+            sleep(0.25)
+
+        return_code = sub.returncode
+    except Timeout:
+        logger.info("command timed out!")
+        sub.send_signal(signal.SIGKILL)
+        return_code = -1
+
+    signal.alarm(0)
+
+    return return_code
+
+
+def bisect_prepare_step(notty=False, max_builds=8):
+    """Run the bisect prepare step
+
+    For C projects this involves running make.
+    """
+
+    git_revision = subprocess.check_output("git describe --tags", shell=True)
+    logger.info("Bisect step for %s", git_revision.rstrip())
+
+    if os.path.isfile("Makefile"):
+        logger.info("Building Makefile based project")
+        builds = 0
+        while builds < max_builds:
+            build_ok = run_command("make -j9", notty, True)
+            if build_ok == 0:
+                logger.info("Build %d finished OK", builds)
+                break;
+            else:
+                logger.info("Build %d failed: %d", builds, build_ok)
+
+            builds += 1
+
+        if build_ok != 0:
+            logger.info("Couldn't finish build after %d attempt", builds)
+            return False
+
+    return True
+
+
 def retry():
     """The main retry loop."""
 
     args = parse_arguments()
+
+    if args.bisect:
+        if not bisect_prepare_step(args.notty):
+            # Source code cannot be tested
+            logger.info("Can't run test step (failed prepare)")
+            return 125
 
     pass_count = 0
     Result = namedtuple("Result", ["is_pass", "result", "time"])
@@ -218,18 +287,9 @@ def retry():
 
     for run_count in itertools.count(start=1):
         start_time = time()
-        if args.timeout:
-            signal.alarm(args.timeout)
 
-        pef = None if args.notty else become_tty_fg
-        sub = subprocess.Popen(args.command, close_fds=True, preexec_fn=pef)
-        try:
-            return_code = sub.wait()
-        except Timeout:
-            sub.send_signal(signal.SIGKILL)
-            return_code = -1
+        return_code = run_command(args.command, args.notty, False, args.timeout)
 
-        signal.alarm(0)
         run_time = time() - start_time
 
         # Did the test pass/fail
@@ -261,7 +321,6 @@ def retry():
             if success:
                 break
 
-
         # now sleep, exit if user kills it
         if wait_some(args.delay, args.notty):
             break
@@ -270,5 +329,6 @@ def retry():
 
 
 if __name__ == "__main__":
-    r = retry()
-    exit(r)
+    final_result = retry()
+    logger.info("%d fails", final_result)
+    exit(final_result)
