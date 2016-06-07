@@ -143,9 +143,6 @@ def wait_some(seconds, notty=False):
     We grab the tty unless told not to so the user can hit Ctrl-C and exit.
     """
 
-    if not notty:
-        become_tty_fg()
-
     try:
         logger.debug("waiting for %ds", seconds)
         sleep(seconds)
@@ -249,6 +246,9 @@ def retry():
                     run_count,
                     return_code, "PASS" if success else "FALSE", run_time,
                     pass_count, run_count)
+
+        if not args.notty:
+            become_tty_fg()
 
         if args.count:
             if run_count >= args.limit:
