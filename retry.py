@@ -38,7 +38,7 @@ def parse_arguments():
     Read the arguments and return them to main.
     """
     parser = ArgumentParser(description="Retry wrapper script.")
-    parser.add_argument('-v', '--verbose', dest="verbose", action='count')
+    parser.add_argument('-v', '--verbose', default=0, dest="verbose", action='count')
     parser.add_argument('-l', '--log', default=None, help="File to log to")
     parser.add_argument('-t', '--test', dest="test",
                         action='store_true', default=False,
