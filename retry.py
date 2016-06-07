@@ -69,7 +69,7 @@ def parse_arguments():
     # Do a little validation/checking
     if not args.notty:
         try:
-            tty_check = os.open('/dev/tty', os.O_RDWR)
+            os.open('/dev/tty', os.O_RDWR)
         except OSError:
             args.notty = True
 
