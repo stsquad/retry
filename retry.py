@@ -104,8 +104,6 @@ def parse_arguments():
     handler.setFormatter(lfmt)
     logger.addHandler(handler)
 
-    logger.info("command is %s", args.command)
-
     if args.limit is None:
         if args.count:
             sys.exit("Define a limit if running a success count")
@@ -113,6 +111,8 @@ def parse_arguments():
             sys.exit("Define a limit if running without a controlling tty")
         if args.invert:
             sys.exit("Define a limit if you have inverted return code test")
+
+    logger.info("retry.py called with %s", args)
 
     return args
 
