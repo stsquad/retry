@@ -27,7 +27,6 @@ import signal
 import subprocess
 import itertools
 import re
-import signal
 
 logger = logging.getLogger("retry")
 
