@@ -238,8 +238,18 @@ def run_command(command, notty=False, timeout=None):
 
         return_code = sub.returncode
     except Timeout:
-        logger.info("command timed out!")
-        sub.send_signal(signal.SIGKILL)
+        logger.info("Timed out, sending SIGTERM to %d!", sub.pid)
+        sub.send_signal(signal.SIGTERM)
+        sleep(10)
+        if sub.poll() is None:
+            logger.info("Still there, sending SIGKILL to %d!!", sub.pid)
+            sub.send_signal(signal.SIGKILL)
+            sleep(5)
+            print ("SUBPROCESS needed killing, build may break without reseting terminal...")
+            print ("The reset will suspend shell, type 'fg' <CR> to continue")
+            # clear/reset the terminal
+            subprocess.call(["reset"])
+
         return_code = -1
 
     signal.alarm(0)
@@ -247,7 +257,7 @@ def run_command(command, notty=False, timeout=None):
     return return_code
 
 
-def bisect_prepare_step(notty=False, max_builds=8):
+def bisect_prepare_step(notty=False, max_builds=1):
     """Run the bisect prepare step
 
     For C projects this involves running make.
@@ -263,7 +273,7 @@ def bisect_prepare_step(notty=False, max_builds=8):
             build_ok = run_command(["make", "-j9"], notty)
             if build_ok == 0:
                 logger.info("Build %d finished OK", builds)
-                break;
+                break
             else:
                 logger.info("Build %d failed: %d", builds, build_ok)
 
@@ -280,6 +290,7 @@ def retry():
     """The main retry loop."""
 
     args = parse_arguments()
+    signal.signal(signal.SIGALRM, timeout_handler)
 
     if args.bisect:
         if not bisect_prepare_step(args.notty):
@@ -290,7 +301,6 @@ def retry():
     pass_count = 0
     Result = namedtuple("Result", ["is_pass", "result", "time"])
     results = []
-    signal.signal(signal.SIGALRM, timeout_handler)
 
     for run_count in itertools.count(start=1):
         start_time = time()
@@ -331,6 +341,9 @@ def retry():
         # now sleep, exit if user kills it
         if wait_some(args.delay, args.notty):
             break
+
+    # fix any broken terminals
+    subprocess.call(["tset", "-c"])
 
     return process_results(results, args.count)
 
