@@ -38,29 +38,35 @@ def parse_arguments():
     Read the arguments and return them to main.
     """
     parser = ArgumentParser(description="Retry wrapper script.")
-    parser.add_argument('-v', '--verbose', default=0, dest="verbose", action='count')
-    parser.add_argument('-l', '--log', default=None, help="File to log to")
-    parser.add_argument('-t', '--test', dest="test",
-                        action='store_true', default=False,
-                        help="Test without retrying")
+
+    # Short options
     parser.add_argument('-b', '--bisect', default=False,
                         action='store_true', help="GIT bisect support")
-    parser.add_argument('--timeout', type=int, help="Set timeout")
-    parser.add_argument('-n', '--limit', dest="limit", type=int,
-                        help="Only loop around this many times")
     parser.add_argument('-c', '--count', action="store_true", default=False,
                         help="In conjunction with -n/--limit "
                         "count total successes.")
+    parser.add_argument('-l', '--log', default=None, help="File to log to")
+    parser.add_argument('-n', '--limit', dest="limit", type=int,
+                        help="Only loop around this many times")
+    parser.add_argument('-t', '--test', dest="test",
+                        action='store_true', default=False,
+                        help="Test without retrying")
+    parser.add_argument('-v', '--verbose', default=0, dest="verbose", action='count')
+
+    # Long only options
+    parser.add_argument('--delay', type=parse_delay, default=1,
+                        help="Sleep for N (s)ecs, (m)ins or (h)ours between retries.")
     parser.add_argument('--invert',
                         action='store_const', const=True, default=False,
                         help="Invert the exit code test")
-    parser.add_argument('--delay', type=parse_delay, default=1,
-                        help="Sleep for N (s)ecs, (m)ins or (h)ours between retries.")
+    parser.add_argument('--notty', action='store_true', default=False,
+                        help="Don't attempt to grab tty control")
     parser.add_argument('--pass', dest="success",
                         type=int, default=0,
                         help="Defined what a pass is.")
-    parser.add_argument('--notty', action='store_true', default=False,
-                        help="Don't attempt to grab tty control")
+    parser.add_argument('--timeout', type=int, help="Set timeout")
+
+    # The main argument, what we run
     parser.add_argument('command', nargs='*',
                         help="The command to run. "
                         "You should precede with -- "
