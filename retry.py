@@ -221,16 +221,17 @@ def timeout_handler(signum, frame):
     raise Timeout
 
 
-def run_command(command, notty=False, shell=False, timeout=None):
+def run_command(command, notty=False, timeout=None):
     """Run a command, letting it take tty and optionally timing out"""
-    if timeout:
-        signal.alarm(timeout)
 
     logger.debug("running command: %s (notty=%s, %s timeout)",
                  command, notty, "with" if timeout else "without")
 
+    if timeout:
+        signal.alarm(timeout)
+
     pef = None if notty else become_tty_fg
-    sub = subprocess.Popen(command, close_fds=True, shell=shell, preexec_fn=pef)
+    sub = subprocess.Popen(command, close_fds=True, preexec_fn=pef)
     try:
         while sub.poll() is None:
             sleep(0.25)
@@ -259,7 +260,7 @@ def bisect_prepare_step(notty=False, max_builds=8):
         logger.info("Building Makefile based project")
         builds = 0
         while builds < max_builds:
-            build_ok = run_command("make -j9", notty, True)
+            build_ok = run_command(["make", "-j9"], notty)
             if build_ok == 0:
                 logger.info("Build %d finished OK", builds)
                 break;
@@ -294,7 +295,7 @@ def retry():
     for run_count in itertools.count(start=1):
         start_time = time()
 
-        return_code = run_command(args.command, args.notty, False, args.timeout)
+        return_code = run_command(args.command, args.notty, args.timeout)
 
         run_time = time() - start_time
 
