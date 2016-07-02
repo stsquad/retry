@@ -45,6 +45,8 @@ def parse_arguments():
     parser.add_argument('-c', '--count', action="store_true", default=False,
                         help="In conjunction with -n/--limit "
                         "count total successes.")
+    parser.add_argument('-g', '--git', action="store_true", default=False,
+                        help="Print git information in header")
     parser.add_argument('-l', '--log', default=None, help="File to log to")
     parser.add_argument('-n', '--limit', dest="limit", type=int,
                         help="Only loop around this many times")
@@ -297,6 +299,11 @@ def retry():
             # Source code cannot be tested
             logger.info("Can't run test step (failed prepare)")
             return 125
+    elif args.git:
+        git_desc = subprocess.check_output("git describe", shell=True)
+        git_desc_all = subprocess.check_output("git describe --all", shell=True)
+        logger.info("Source code is @ %s or %s", git_desc.rstrip(), git_desc_all.rstrip())
+
 
     pass_count = 0
     Result = namedtuple("Result", ["is_pass", "result", "time"])
