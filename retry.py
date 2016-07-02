@@ -50,10 +50,12 @@ def parse_arguments():
     parser.add_argument('-l', '--log', default=None, help="File to log to")
     parser.add_argument('-n', '--limit', dest="limit", type=int,
                         help="Only loop around this many times")
+    parser.add_argument('-q', '--quiet', default=None, action="store_true",
+                        help="Supress all output")
     parser.add_argument('-t', '--test', dest="test",
                         action='store_true', default=False,
                         help="Test without retrying")
-    parser.add_argument('-v', '--verbose', default=0, dest="verbose", action='count')
+    parser.add_argument('-v', '--verbose', dest="verbose", action='count')
 
     # Long only options
     parser.add_argument('--delay', type=parse_delay, default=1,
@@ -85,17 +87,16 @@ def parse_arguments():
 
     # bisect support needs some defaults
     if args.bisect:
-        if args.verbose == 0:
-            args.verbose = 1
         if not args.log:
             args.log = "bisect.log"
 
     # setup logging
+    if args.quiet:
+        logger.setLevel(logging.ERROR)
     if args.verbose:
-        if args.verbose == 1: logger.setLevel(logging.INFO)
-        if args.verbose >= 2: logger.setLevel(logging.DEBUG)
+        if args.verbose == 1: logger.setLevel(logging.DEBUG)
     else:
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.INFO)
 
     if args.log:
         handler = logging.FileHandler(args.log, mode="a")
@@ -114,7 +115,10 @@ def parse_arguments():
         if args.invert:
             sys.exit("Define a limit if you have inverted return code test")
 
-    logger.info("retry.py called with %s", args)
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("retry.py called with %s", args)
+    else:
+        logger.info("retry.py called with %s", args.command)
 
     return args
 
@@ -184,7 +188,7 @@ def process_results(results, breakdown=False):
     total_runs = len(results)
     total_passes = 0
 
-    if breakdown: print ("Results summary:")
+    if breakdown: logger.info("Results summary:")
 
     for ret, res in sorted_results.iteritems():
         count = len(res)
@@ -204,10 +208,10 @@ def process_results(results, breakdown=False):
         deviation = deviation / count
 
         if breakdown:
-            print ("%d: %d times (%.2f%%), avg time %f (%f deviation)" %
-                   (ret, count, perc, avg_time, deviation))
+            logger.info("%d: %d times (%.2f%%), avg time %f (%f deviation)",
+                        ret, count, perc, avg_time, deviation)
 
-    print ("Ran command %d times, %d passes" % (total_runs, total_passes))
+    logger.info("Ran command %d times, %d passes", total_runs, total_passes)
     return (total_runs - total_passes)
 
 
@@ -357,5 +361,4 @@ def retry():
 
 if __name__ == "__main__":
     final_result = retry()
-    logger.info("%d fails", final_result)
     exit(final_result)
