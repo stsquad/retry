@@ -19,6 +19,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from time import sleep, time
 from collections import namedtuple
+from math import sqrt
 
 import logging
 import sys
@@ -201,15 +202,15 @@ def process_results(results, breakdown=False):
         avg_time = total_time/count
 
         # calculate deviation
-        deviation = 0
+        varience = 0
         for r in res:
-            deviation += (r.time - avg_time)**2
+            varience += (r.time - avg_time)**2
 
-        deviation = deviation / count
+        varience = varience / (count - 1)
 
         if breakdown:
-            logger.info("%d: %d times (%.2f%%), avg time %f (%f deviation)",
-                        ret, count, perc, avg_time, deviation)
+            logger.info("%d: %d times (%.2f%%), avg time %.3f (%.2f varience/%.2f deviation)",
+                        ret, count, perc, avg_time, varience, sqrt(varience))
 
     logger.info("Ran command %d times, %d passes", total_runs, total_passes)
     return (total_runs - total_passes)
