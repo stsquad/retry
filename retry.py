@@ -206,7 +206,8 @@ def process_results(results, breakdown=False):
         for r in res:
             varience += (r.time - avg_time)**2
 
-        varience = varience / (count - 1)
+        if count > 1:
+            varience = varience / (count - 1)
 
         if breakdown:
             logger.info("%d: %d times (%.2f%%), avg time %.3f (%.2f varience/%.2f deviation)",
