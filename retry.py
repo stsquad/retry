@@ -51,6 +51,7 @@ def parse_arguments():
     parser.add_argument('-l', '--log', default=None, help="File to log to")
     parser.add_argument('-n', '--limit', dest="limit", type=int,
                         help="Only loop around this many times")
+    parser.add_argument('-m', '--modulate', dest="modulate", help="Modulate sequence, replaces @ in the command line")
     parser.add_argument('-q', '--quiet', default=None, action="store_true",
                         help="Supress all output")
     parser.add_argument('-t', '--test', dest="test",
@@ -116,10 +117,22 @@ def parse_arguments():
         if args.invert:
             sys.exit("Define a limit if you have inverted return code test")
 
+    if args.modulate:
+        modulate_list=[]
+        fields=args.modulate.split(",")
+        for f in fields:
+            try:
+                if int(f):
+                    modulate_list.append(f)
+            except ValueError:
+                if "-" in f:
+                    r=f.split("-")
+                    modulate_list.extend(range(int(r[0]), int(r[1])+1))
+        args.modulate = modulate_list
+
+
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("retry.py called with %s", args)
-    else:
-        logger.info("retry.py called with %s", args.command)
 
     return args
 
@@ -294,10 +307,11 @@ def bisect_prepare_step(notty=False, max_builds=1):
     return True
 
 
-def retry():
+def retry(args, command):
     """The main retry loop."""
 
-    args = parse_arguments()
+    logger.info("retry.py called with %s", command)
+
     signal.signal(signal.SIGALRM, timeout_handler)
 
     if args.bisect:
@@ -318,7 +332,7 @@ def retry():
     for run_count in itertools.count(start=1):
         start_time = time()
 
-        return_code = run_command(args.command, args.notty, args.timeout)
+        return_code = run_command(command, args.notty, args.timeout)
 
         run_time = time() - start_time
 
@@ -362,5 +376,19 @@ def retry():
 
 
 if __name__ == "__main__":
-    final_result = retry()
+    args = parse_arguments()
+
+    if args.modulate:
+        final_result = 0
+        for m in args.modulate:
+            command = []
+            for c in args.command:
+                if c is "@":
+                    command.append(str(m))
+                else:
+                    command.append(c)
+            final_result += retry(args, command)
+    else:
+        final_result = retry(args, args.command)
+
     exit(final_result)

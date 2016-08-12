@@ -10,3 +10,5 @@ python:
   - "nightly" # currently points to 3.6-dev
 script:
   - python -m doctest ./retry.py
+  - ./retry.py -n 5 -c ./tests/random.sh
+  - ./retry.py -n 3 -m 1,2-3 -c ./tests/parameter.sh @
