@@ -170,6 +170,7 @@ def become_tty_fg():
     tty = os.open('/dev/tty', os.O_RDWR)
     os.tcsetpgrp(tty, os.getpgrp())
     signal.signal(signal.SIGTTOU, hdlr)
+    os.close(tty)
 
 
 def wait_some(seconds, notty=False):
