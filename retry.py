@@ -118,15 +118,15 @@ def parse_arguments():
             sys.exit("Define a limit if you have inverted return code test")
 
     if args.modulate:
-        modulate_list=[]
-        fields=args.modulate.split(",")
+        modulate_list = []
+        fields = args.modulate.split(",")
         for f in fields:
             try:
                 if int(f):
                     modulate_list.append(f)
             except ValueError:
                 if "-" in f:
-                    r=f.split("-")
+                    r = f.split("-")
                     modulate_list.extend(range(int(r[0]), int(r[1])+1))
         args.modulate = modulate_list
 
