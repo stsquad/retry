@@ -121,13 +121,12 @@ def parse_arguments():
         modulate_list=[]
         fields=args.modulate.split(",")
         for f in fields:
-            try:
-                if int(f):
-                    modulate_list.append(f)
-            except ValueError:
-                if "-" in f:
-                    r=f.split("-")
-                    modulate_list.extend(range(int(r[0]), int(r[1])+1))
+            if bool(re.search("[0-9]+-[0-9]+", f)):
+                r=f.split("-")
+                modulate_list.extend(range(int(r[0]), int(r[1])+1))
+            else:
+                modulate_list.append(f)
+
         args.modulate = modulate_list
 
 
