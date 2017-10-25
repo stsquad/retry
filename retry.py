@@ -46,12 +46,15 @@ def parse_arguments():
     parser.add_argument('-c', '--count', action="store_true", default=False,
                         help="In conjunction with -n/--limit "
                         "count total successes.")
+    parser.add_argument('-s', '--stdout', default=False, action='store_true',
+                        help="Grab stdout (assume single line)")
     parser.add_argument('-g', '--git', action="store_true", default=False,
                         help="Print git information in header")
     parser.add_argument('-l', '--log', default=None, help="File to log to")
     parser.add_argument('-n', '--limit', dest="limit", type=int,
                         help="Only loop around this many times")
-    parser.add_argument('-m', '--modulate', dest="modulate", help="Modulate sequence, replaces @ in the command line")
+    parser.add_argument('-m', '--modulate', dest="modulate",
+                        help="Modulate sequence, replaces @ in the command line")
     parser.add_argument('-q', '--quiet', default=None, action="store_true",
                         help="Supress all output")
     parser.add_argument('-t', '--test', dest="test",
@@ -121,13 +124,12 @@ def parse_arguments():
         modulate_list = []
         fields = args.modulate.split(",")
         for f in fields:
-            try:
-                if int(f):
-                    modulate_list.append(f)
-            except ValueError:
-                if "-" in f:
-                    r = f.split("-")
-                    modulate_list.extend(range(int(r[0]), int(r[1])+1))
+            if bool(re.search("[0-9]+-[0-9]+", f)):
+                r=f.split("-")
+                modulate_list.extend(range(int(r[0]), int(r[1])+1))
+            else:
+                modulate_list.append(f)
+
         args.modulate = modulate_list
 
 
@@ -239,21 +241,22 @@ class Timeout(Exception):
 
 
 def timeout_handler(signum, frame):
+    #pylint: disable=unused-argument
     "Timeout handler"
     raise Timeout
 
 
-def run_command(command, notty=False, timeout=None):
-    """Run a command, letting it take tty and optionally timing out"""
+def run_command(runcmd, notty=False, timeout=None):
+    """Run a runcmd, letting it take tty and optionally timing out"""
 
-    logger.debug("running command: %s (notty=%s, %s timeout)",
-                 command, notty, "with" if timeout else "without")
+    logger.debug("running: %s (notty=%s, %s timeout)",
+                 runcmd, notty, "with" if timeout else "without")
 
     if timeout:
         signal.alarm(timeout)
 
     pef = None if notty else become_tty_fg
-    sub = subprocess.Popen(command, close_fds=True, preexec_fn=pef)
+    sub = subprocess.Popen(runcmd, close_fds=True, preexec_fn=pef)
     try:
         while sub.poll() is None:
             sleep(0.25)
@@ -277,6 +280,21 @@ def run_command(command, notty=False, timeout=None):
     signal.alarm(0)
 
     return return_code
+
+def run_command_grab_stdout(runcmd):
+    """Run a command, grabbbing its stdout and returning both it and the result"""
+
+    logger.debug("running: %s", runcmd)
+    return_code = 0
+
+    try:
+        out = subprocess.check_output(runcmd)
+    except subprocess.CalledProcessError, err:
+        return_code = err.returncode
+        out = err.output
+
+    out = out.rstrip()
+    return (return_code, out)
 
 
 def bisect_prepare_step(notty=False, max_builds=1):
@@ -330,10 +348,17 @@ def retry(args, command):
     Result = namedtuple("Result", ["is_pass", "result", "time"])
     results = []
 
+    logger.info("Results:")
+    logger.info("Run, Ret, Pass/Fail, Time, Total Pass, Total Run%s",
+                (", output" if args.stdout else ""))
+
     for run_count in itertools.count(start=1):
         start_time = time()
 
-        return_code = run_command(command, args.notty, args.timeout)
+        if args.stdout:
+            (return_code, output) = run_command_grab_stdout(command)
+        else:
+            return_code = run_command(command, args.notty, args.timeout)
 
         run_time = time() - start_time
 
@@ -347,10 +372,11 @@ def retry(args, command):
         # Log the result
         results.append(Result(success, return_code, run_time))
 
-        logger.info("run %d: ret=%d (%s), time=%f (%d/%d)",
+        logger.info("%d, %d, %s, %f, %d, %d, %s",
                     run_count,
                     return_code, "PASS" if success else "FALSE", run_time,
-                    pass_count, run_count)
+                    pass_count, run_count,
+                    output if args.stdout else "-")
 
         if not args.notty:
             become_tty_fg()
