@@ -242,17 +242,17 @@ def timeout_handler(signum, frame):
     raise Timeout
 
 
-def run_command(command, notty=False, timeout=None):
-    """Run a command, letting it take tty and optionally timing out"""
+def run_command(runcmd, notty=False, timeout=None):
+    """Run a runcmd, letting it take tty and optionally timing out"""
 
-    logger.debug("running command: %s (notty=%s, %s timeout)",
-                 command, notty, "with" if timeout else "without")
+    logger.debug("running: %s (notty=%s, %s timeout)",
+                 runcmd, notty, "with" if timeout else "without")
 
     if timeout:
         signal.alarm(timeout)
 
     pef = None if notty else become_tty_fg
-    sub = subprocess.Popen(command, close_fds=True, preexec_fn=pef)
+    sub = subprocess.Popen(runcmd, close_fds=True, preexec_fn=pef)
     try:
         while sub.poll() is None:
             sleep(0.25)
