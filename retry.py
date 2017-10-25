@@ -329,6 +329,9 @@ def retry(args, command):
     Result = namedtuple("Result", ["is_pass", "result", "time"])
     results = []
 
+    logger.info("Results:")
+    logger.info("Run, Ret, Pass/Fail, Time, Total Pass, Total Run")
+
     for run_count in itertools.count(start=1):
         start_time = time()
 
@@ -346,7 +349,7 @@ def retry(args, command):
         # Log the result
         results.append(Result(success, return_code, run_time))
 
-        logger.info("run %d: ret=%d (%s), time=%f (%d/%d)",
+        logger.info("%d, %d, %s, %f, %d, %d",
                     run_count,
                     return_code, "PASS" if success else "FALSE", run_time,
                     pass_count, run_count)
