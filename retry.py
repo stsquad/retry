@@ -46,12 +46,15 @@ def parse_arguments():
     parser.add_argument('-c', '--count', action="store_true", default=False,
                         help="In conjunction with -n/--limit "
                         "count total successes.")
+    parser.add_argument('-s', '--stdout', default=False, action='store_true',
+                        help="Grab stdout (assume single line)")
     parser.add_argument('-g', '--git', action="store_true", default=False,
                         help="Print git information in header")
     parser.add_argument('-l', '--log', default=None, help="File to log to")
     parser.add_argument('-n', '--limit', dest="limit", type=int,
                         help="Only loop around this many times")
-    parser.add_argument('-m', '--modulate', dest="modulate", help="Modulate sequence, replaces @ in the command line")
+    parser.add_argument('-m', '--modulate', dest="modulate",
+                        help="Modulate sequence, replaces @ in the command line")
     parser.add_argument('-q', '--quiet', default=None, action="store_true",
                         help="Supress all output")
     parser.add_argument('-t', '--test', dest="test",
@@ -238,6 +241,7 @@ class Timeout(Exception):
 
 
 def timeout_handler(signum, frame):
+    #pylint: disable=unused-argument
     "Timeout handler"
     raise Timeout
 
@@ -276,6 +280,21 @@ def run_command(runcmd, notty=False, timeout=None):
     signal.alarm(0)
 
     return return_code
+
+def run_command_grab_stdout(runcmd):
+    """Run a command, grabbbing its stdout and returning both it and the result"""
+
+    logger.debug("running: %s", runcmd)
+    return_code = 0
+
+    try:
+        out = subprocess.check_output(runcmd)
+    except subprocess.CalledProcessError, err:
+        return_code = err.returncode
+        out = err.output
+
+    out = out.rstrip()
+    return (return_code, out)
 
 
 def bisect_prepare_step(notty=False, max_builds=1):
@@ -330,12 +349,16 @@ def retry(args, command):
     results = []
 
     logger.info("Results:")
-    logger.info("Run, Ret, Pass/Fail, Time, Total Pass, Total Run")
+    logger.info("Run, Ret, Pass/Fail, Time, Total Pass, Total Run%s",
+                (", output" if args.stdout else ""))
 
     for run_count in itertools.count(start=1):
         start_time = time()
 
-        return_code = run_command(command, args.notty, args.timeout)
+        if args.stdout:
+            (return_code, output) = run_command_grab_stdout(command)
+        else:
+            return_code = run_command(command, args.notty, args.timeout)
 
         run_time = time() - start_time
 
@@ -349,10 +372,11 @@ def retry(args, command):
         # Log the result
         results.append(Result(success, return_code, run_time))
 
-        logger.info("%d, %d, %s, %f, %d, %d",
+        logger.info("%d, %d, %s, %f, %d, %d, %s",
                     run_count,
                     return_code, "PASS" if success else "FALSE", run_time,
-                    pass_count, run_count)
+                    pass_count, run_count,
+                    output if args.stdout else "-")
 
         if not args.notty:
             become_tty_fg()
