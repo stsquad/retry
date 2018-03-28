@@ -98,7 +98,7 @@ def parse_arguments():
     # setup logging
     if args.quiet:
         logger.setLevel(logging.ERROR)
-    if args.verbose:
+    elif args.verbose:
         if args.verbose == 1: logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
