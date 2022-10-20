@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Generic Retry Script
@@ -34,6 +34,8 @@ logger = logging.getLogger("retry")
 #
 # Command line options
 #
+
+
 def parse_arguments():
     """
     Read the arguments and return them to main.
@@ -125,19 +127,17 @@ def parse_arguments():
         fields = args.modulate.split(",")
         for f in fields:
             if bool(re.search("[0-9]+-[0-9]+", f)):
-                r=f.split("-")
+                r = f.split("-")
                 modulate_list.extend(range(int(r[0]), int(r[1])+1))
             else:
                 modulate_list.append(f)
 
         args.modulate = modulate_list
 
-
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("retry.py called with %s", args)
 
     return args
-
 
 
 def parse_delay(string):
@@ -164,8 +164,10 @@ def parse_delay(string):
 def become_tty_fg():
     """Become foreground tty.
 
-    This is used before spawning the subprocess so key sequences are correctly passed down.
-    We also use it to grab it back when sleeping.
+    This is used before spawning the subprocess so key sequences are
+    correctly passed down. We also use it to grab it back when
+    sleeping.
+
     """
     os.setpgrp()
     hdlr = signal.signal(signal.SIGTTOU, signal.SIG_IGN)
@@ -207,7 +209,7 @@ def process_results(results, breakdown=False):
 
     if breakdown: logger.info("Results summary:")
 
-    for ret, res in sorted_results.iteritems():
+    for ret, res in sorted_results.items():
         count = len(res)
         total_time = 0.0
         for _ in res:
@@ -270,8 +272,8 @@ def run_command(runcmd, notty=False, timeout=None):
             logger.info("Still there, sending SIGKILL to %d!!", sub.pid)
             sub.send_signal(signal.SIGKILL)
             sleep(5)
-            print ("SUBPROCESS needed killing, build may break without reseting terminal...")
-            print ("The reset will suspend shell, type 'fg' <CR> to continue")
+            print("SUBPROCESS needed killing, build may break without reseting terminal...")
+            print("The reset will suspend shell, type 'fg' <CR> to continue")
             # clear/reset the terminal
             subprocess.call(["reset"])
 
@@ -289,7 +291,7 @@ def run_command_grab_stdout(runcmd):
 
     try:
         out = subprocess.check_output(runcmd)
-    except subprocess.CalledProcessError, err:
+    except subprocess.CalledProcessError as err:
         return_code = err.returncode
         out = err.output
 
@@ -410,7 +412,7 @@ if __name__ == "__main__":
         for m in args.modulate:
             command = []
             for c in args.command:
-                if c is "@":
+                if c == u'@':
                     command.append(str(m))
                 else:
                     command.append(c)
