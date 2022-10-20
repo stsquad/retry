@@ -390,7 +390,7 @@ def retry(args, command):
             # exit if running until failure
             if run_count >= args.limit:
                 break
-            if not success:
+            if args.until and not success:
                 break
         else:
             if args.test is True:
