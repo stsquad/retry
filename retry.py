@@ -48,6 +48,9 @@ def parse_arguments():
     parser.add_argument('-c', '--count', action="store_true", default=False,
                         help="In conjunction with -n/--limit "
                         "count total successes.")
+    parser.add_argument('-u', '--until', action="store_true", default=False,
+                        help="In conjunction with -n/--limit "
+                        "run until all passed or any failure.")
     parser.add_argument('-s', '--stdout', default=False, action='store_true',
                         help="Grab stdout (assume single line)")
     parser.add_argument('-g', '--git', action="store_true", default=False,
@@ -383,12 +386,16 @@ def retry(args, command):
         if not args.notty:
             become_tty_fg()
 
-        if args.count:
+        if args.count or args.until:
+            # exit if running until failure
             if run_count >= args.limit:
+                break
+            if not success:
                 break
         else:
             if args.test is True:
                 break
+            # exit if reached the limit
             if args.limit and run_count >= args.limit:
                 break
             if success:
